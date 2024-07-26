@@ -1,0 +1,7 @@
+This program was created by Devin Morin in July, 2024.
+
+This is version 1.0, published July 23, 2024.
+
+The program will only function for the Lakeshore 460 gaussmeter, with a three-axis probe.
+
+Indended for use on Windows, and Mac OS.
