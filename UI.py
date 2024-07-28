@@ -38,39 +38,42 @@ class UIApp:
         self.serial_thread.start()
 
     def startSerial(self):
-        while True:
-            while True:          
-                # Create gaussmeter connection
-                ports = serial.tools.list_ports.comports()
-                active_ports = [port.device for port in ports]
-                
-                for port in active_ports:
-                    #print(f'Trying port: {port}')
-                    self.logic_app.serial_connect_gaussmeter(port)
+        try:
+            while True:
+                while True:          
+                    # Create gaussmeter connection
+                    ports = serial.tools.list_ports.comports()
+                    active_ports = [port.device for port in ports]
+                    
+                    for port in active_ports:
+                        #print(f'Trying port: {port}')
+                        self.logic_app.serial_connect_gaussmeter(port)
 
-                if self.logic_app.has_serial_connect()[0] == True:
-                    print(f"Gaussmeter connected: {self.logic_app.has_serial_connect()[0]}\n\n")
-                    break
-                else:
-                    print('Gaussmeter cannot connect.\nRetrying connection in 5 seconds...\n')
-                    time.sleep(5)  # Wait before retrying
+                    if self.logic_app.has_serial_connect()[0] == True:
+                        print(f"Gaussmeter connected: {self.logic_app.has_serial_connect()[0]}\n\n")
+                        break
+                    else:
+                        print('Gaussmeter cannot connect.\nRetrying connection in 5 seconds...\n')
+                        time.sleep(5)  # Wait before retrying
 
-            while self.logic_app.has_serial_connect()[1] == False:
-                #Create motor connection
-                ports = serial.tools.list_ports.comports()
-                active_ports = [port.device for port in ports]
+                while self.logic_app.has_serial_connect()[1] == False:
+                    #Create motor connection
+                    ports = serial.tools.list_ports.comports()
+                    active_ports = [port.device for port in ports]
 
-                for port in active_ports:
-                    #print(f'Trying port: {port}')
-                    self.logic_app.serial_connect_motor(port)
+                    for port in active_ports:
+                        #print(f'Trying port: {port}')
+                        self.logic_app.serial_connect_motor(port)
 
-                if self.logic_app.has_serial_connect()[1] == True:
-                    print(f"Motors connected: {self.logic_app.has_serial_connect()[1]}\n\n")
-                    break
-                else:
-                    print('Motors cannot connect.\nRetrying connection in 5 seconds...\n')
-                    time.sleep(5)  # Wait before retrying
-            break   
+                    if self.logic_app.has_serial_connect()[1] == True:
+                        print(f"Motors connected: {self.logic_app.has_serial_connect()[1]}\n\n")
+                        break
+                    else:
+                        print('Motors cannot connect.\nRetrying connection in 5 seconds...\n')
+                        time.sleep(5)  # Wait before retrying
+                break 
+        except Exception as e:
+            print(e)  
 
 
     def create_menu_bar(self):
@@ -79,13 +82,18 @@ class UIApp:
         
         # File Menu
         file_menu = tk.Menu(menu_bar, tearoff=0)
-        file_menu.add_command(label="Exit", command=self.root.quit, font=('Courier', 10))
+        file_menu.add_command(label="Exit", command=self.exitCommand, font=('Courier', 10))
         menu_bar.add_cascade(label="File", menu=file_menu, font=('Courier', 10))
         
         # Options Menu
         options_menu = tk.Menu(menu_bar, tearoff=0)
         options_menu.add_command(label="Info", command=self.open_info_popup, font=('Courier', 10))
         menu_bar.add_cascade(label="Options", menu=options_menu)
+
+    def exitCommand(self):
+        self.root.destroy()  # Close the Tkinter application window
+
+        
 
     def open_info_popup(self):
         # Create a new window for the info popup
