@@ -23,9 +23,16 @@ class UIApp:
         self.root.title("Magnetic Field Plotter")
         self.default_font = ("Arial", 12)
         self.root.option_add("*Font", self.default_font)
+
+        # Configure the root window to expand
+        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_columnconfigure(1, weight=1)
+
         self.create_menu_bar()
         self.create_widgets()
         self.init_plot()
+        
         # Start the serial connection in a separate thread
         self.serial_thread = threading.Thread(target=self.startSerial)
         self.serial_thread.start()
@@ -113,6 +120,7 @@ class UIApp:
             active_ports.append(port.device)
         return active_ports
 
+
     def create_widgets(self):
         # Frame to hold the graph plot
         self.plot_frame = customtkinter.CTkFrame(self.root)
@@ -122,35 +130,52 @@ class UIApp:
         self.input_frame = customtkinter.CTkFrame(self.root)
         self.input_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
         
-        # Labels and entries for min, max, increment
-        customtkinter.CTkLabel(self.input_frame, text="Min (cm):").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.min_entry = customtkinter.CTkEntry(self.input_frame)
-        self.min_entry.grid(row=0, column=1, padx=5, pady=5)
+        # Configure the root window to expand
+        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_columnconfigure(1, weight=1)
         
-        customtkinter.CTkLabel(self.input_frame, text="Max (cm):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        self.max_entry = customtkinter.CTkEntry(self.input_frame)
-        self.max_entry.grid(row=1, column=1, padx=5, pady=5)
-        
-        customtkinter.CTkLabel(self.input_frame, text="Increment (cm):").grid(row=2, column=0, padx=5, pady=5, sticky="w")
-        self.inc_entry = customtkinter.CTkEntry(self.input_frame)
-        self.inc_entry.grid(row=2, column=1, padx=5, pady=5)
-        
-        # Button to update plot
-        self.plot_button = customtkinter.CTkButton(self.input_frame, text="Start", command=self.start_plot)
-        self.plot_button.grid(row=3, columnspan=2, padx=5, pady=10)
+        # Configure frames to expand
+        self.plot_frame.grid_rowconfigure(0, weight=1)
+        self.plot_frame.grid_columnconfigure(0, weight=1)
+        self.input_frame.grid_columnconfigure(0, weight=1)
+        self.input_frame.grid_columnconfigure(1, weight=1)
+        self.input_frame.grid_rowconfigure(6, weight=1)  # Ensure console output expands
 
+        # Labels and entries for min, max, increment
+        customtkinter.CTkLabel(self.input_frame, text="Axis").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.axis_entry = customtkinter.CTkComboBox(self.input_frame, values=["X", "Y", "Z"])
+        self.axis_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        customtkinter.CTkLabel(self.input_frame, text="Min (cm):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        self.min_entry = customtkinter.CTkEntry(self.input_frame)
+        self.min_entry.grid(row=1, column=1, padx=5, pady=5)
+        
+        customtkinter.CTkLabel(self.input_frame, text="Max (cm):").grid(row=2, column=0, padx=5, pady=5, sticky="w")
+        self.max_entry = customtkinter.CTkEntry(self.input_frame)
+        self.max_entry.grid(row=2, column=1, padx=5, pady=5)
+        
+        customtkinter.CTkLabel(self.input_frame, text="Increment (cm):").grid(row=3, column=0, padx=5, pady=5, sticky="w")
+        self.inc_entry = customtkinter.CTkEntry(self.input_frame)
+        self.inc_entry.grid(row=3, column=1, padx=5, pady=5)
+        
+        # Button to start plot
+        self.plot_button = customtkinter.CTkButton(self.input_frame, text="Start", command=self.start_plot)
+        self.plot_button.grid(row=4, column=0, columnspan=2, padx=5, pady=10)
+        
         # Button to stop plot
         self.stop_button = customtkinter.CTkButton(self.input_frame, text="Stop", command=self.stop_plot)
-        self.stop_button.grid(row=4, columnspan=2, padx=5, pady=10)
+        self.stop_button.grid(row=5, column=0, columnspan=2, padx=5, pady=10)
         
-       
-
         # Text widget to display console output
         self.console_output = tk.Text(self.input_frame, height=10, width=30, wrap=tk.WORD, bg='black', fg='lime', font=('Courier', 10))
-        self.console_output.grid(row=6, columnspan=2, padx=5, pady=5)
+        self.console_output.grid(row=6, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
         # Redirect stdout to the Text widget
         self.redirect_stdout()
+
+
+
 
     def redirect_stdout(self):
         # Create a StringIO buffer
@@ -165,17 +190,19 @@ class UIApp:
         # Replace sys.stdout with our custom write function
         sys.stdout.write = write
 
+
     def init_plot(self):
         self.fig, self.ax = plt.subplots()
-        
+
         # Customize the plot for a dark and modern look
-        self.ax.set_facecolor('#2E2E2E')  # Set the background color of the plot
-        self.fig.patch.set_facecolor('#2E2E2E')  # Set the background color of the figure
-        
+        dark_color = '#2E2E2E'
+        self.ax.set_facecolor(dark_color)  # Set the background color of the plot
+        self.fig.patch.set_facecolor(dark_color)  # Set the background color of the figure
+
         self.line, = self.ax.plot([], [], linewidth=2, linestyle='-', color='cyan')
         self.ax.set_xlabel('Distance (cm)', color='white')
         self.ax.set_ylabel('Magnetic Field (G)', color='white')
-        
+
         # Customize axis colors and styles
         self.ax.spines['top'].set_visible(False)
         self.ax.spines['right'].set_visible(False)
@@ -186,28 +213,23 @@ class UIApp:
         self.ax.yaxis.label.set_color('white')
         self.ax.xaxis.label.set_color('white')
         self.ax.title.set_color('white')
-    
-        
+
         # Embed the plot in the customtkinter frame using FigureCanvasTkAgg
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
-        self.canvas.get_tk_widget().pack(fill=BOTH, expand=True)
-        
-        self.animation(x=0,y=0)
+        self.canvas.get_tk_widget().pack(fill='both', expand=True)
+
+        self.animation(x=0, y=0)
+
         
     def animation(self, x, y):
-
         self.line.set_data(x, y)
-        
         self.ax.relim()
         self.ax.autoscale_view(True,True,True)
-        
         self.canvas.draw()
         self.canvas.flush_events()
-        
         #self.root.after(1000, self.animation(x,y))
         
     def update_plot(self):
-        # Placeholder function for updating plot with user inputs
         pass
     
     def stop_plot(self):
@@ -218,53 +240,67 @@ class UIApp:
         else :
             print('Error in closing serial ports.')
 
-    def start_plot(self):
-        print('STARTING PLOT')
+    def validInputParameters(self):
         startPos = float(self.min_entry.get())
         endPos = float(self.max_entry.get())
         increment = float(self.inc_entry.get())
-        axis = 3
+
+        if startPos >= endPos or startPos == 0 or endPos == 0 or increment == 0 or increment >= abs(startPos - endPos):
+            return False
+        else:
+            return True
+
+    def start_plot(self):
+        try:
+            startPos = float(self.min_entry.get())
+            endPos = float(self.max_entry.get())
+            increment = float(self.inc_entry.get())
+        except ValueError:
+            print('Invalid parameters...')
+            return None
+        
+        axis = self.axis_entry.get()
         position = []
         magneticFieldMagnitude = []
         gaussConnect, motorConnect = self.logic_app.has_serial_connect()
-        #if gaussConnect == True and motorConnect == True:
-        if gaussConnect and motorConnect:
-            print('Starting measurement...')
+
+        if gaussConnect and motorConnect and self.validInputParamters():
+            print(f'Parameters: ({startPos}, {endPos}, {increment})')
             
-            print(f'Parameters: ({startPos},{endPos},{increment})')
-            #Check to see if parameters are valid
-            if startPos >= endPos or startPos == 0 or endPos == 0 or increment == 0 or increment >= abs(startPos - endPos):
-                print('Invalid parameters...')
-                return None
-            
-            #Move motor to first position
+            # Move motor to the first position
             self.logic_app.moveMotor(startPos, axis)
             if not os.path.exists("Results"):
                 os.makedirs("Results")
+
             results_dir = f'FieldPlot_Axis={axis}_Min={startPos}_Max={endPos}_Increment={increment}_Time={datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
             filepath = os.path.join("Results", results_dir)
+
             with open(filepath, 'w', newline='') as file:
                 writer = csv.writer(file)
                 writer.writerow(['Position', 'MagneticFieldMagnitude'])
-                counter = 0
-                steps = int((endPos-startPos)/increment)
+                
+                steps = int((endPos - startPos) / increment)
                 startTime = time.time()
-                for step in np.arange(startPos, endPos, increment):
-                    counter += 1
-                    while self.logic_app.isMotorMoving() == True:
+
+                for counter, step in enumerate(np.arange(startPos, endPos, increment), start=1):
+                    while self.logic_app.isMotorMoving():
                         time.sleep(0.1)
+
                     position.append(step)
                     magneticFieldMagnitude.append(self.logic_app.getMagneticField())
                     self.logic_app.moveMotor(increment, axis)
                     time.sleep(0.5)
-                    for pos, mag in zip(position, magneticFieldMagnitude):
-                        writer.writerow([pos, mag])
-                    percentageFinished = int(100*counter/steps)
+
+                    writer.writerow([position[-1], magneticFieldMagnitude[-1]])
+
+                    percentageFinished = int(100 * counter / steps)
                     elapsedTime = time.time() - startTime
-                    timeperStep = elapsedTime/counter
-                    remainingTime = round((timeperStep*(steps-counter))/60, 1)
-                    print(f'Position: {round(step,1)}, Steps: {counter}/{steps} ({percentageFinished}%), Time Remaining: {remainingTime} min')
+                    timePerStep = elapsedTime / counter
+                    remainingTime = round((timePerStep * (steps - counter)) / 60, 1)
+
+                    print(f'Position: {round(step, 1)}, Steps: {counter}/{steps} ({percentageFinished}%), Time Remaining: {remainingTime} min')
                     self.animation(position, magneticFieldMagnitude)
+
             self.logic_app.endPlot()
             print('Field measurement complete.')
         else:
@@ -273,7 +309,7 @@ class UIApp:
 def main():
   customtkinter.set_appearance_mode("dark")
   root = customtkinter.CTk()
-
+  root.geometry("1200x700")  # width x height
   app = UIApp(root)
   root.mainloop()
     

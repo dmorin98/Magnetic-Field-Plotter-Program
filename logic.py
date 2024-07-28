@@ -10,15 +10,9 @@ class App:
   #Check if both serial ports are connected
   #Return if True or False
   def has_serial_connect(self):
-    if self.gaussSerial == None:
-      gaussConnect = False
-    else:
-      gaussConnect = True
-    if self.motorSerial == None:
-      motorConnect = False
-    else:
-      motorConnect = True
-    return gaussConnect, motorConnect
+      gaussConnect = self.gaussSerial is not None
+      motorConnect = self.motorSerial is not None
+      return gaussConnect, motorConnect
 
   #Initialize connection to gaussmeter through serial port
   #Return serial connection link
@@ -36,42 +30,43 @@ class App:
       print(f'{e}\nAn error has occured. See above...')
 
   #Initialize connection to gaussmeter through serial port
-  #Return serial connection link
   def serial_connect_motor(self, COM):
-    try:
-      serial_port = serial.Serial('COM5', baudrate=9600, timeout=1)
-      serial_port.write(b'F\r')
-      serial_port.write(b'N\r')
-      serial_port.write(b'C\r')
-      serial_port.write(b'setM1M6\r')
-      serial_port.write(b'getM1M\r')
-      response1 = float(serial_port.readline().decode())
-      print(f'Motor 1: {response1}')
-      serial_port.write(b'setM2M4\r')
-      serial_port.write(b'getM2M\r')
-      response2 = float(serial_port.readline().decode())
-      print(f'Motor 2: {response2}')
-      serial_port.write(b'setM3M4\r')
-      serial_port.write(b'getM3M\r')
-      response3 = float(serial_port.readline().decode())
-      print(f'Motor 3: {response3}')
+      def send_command(command):
+          serial_port.write(command)
+          return float(serial_port.readline().decode())
 
-      #Condition for if the correct motor COM has been found and responding correctly
-      if response1 == 6.0 and response2 == 4.0 and response3 == 4.0:
-        self.motorSerial = serial_port
-    except Exception as e:
-      print(f'{e}\nAn error has occured. See above...')
+      try:
+          serial_port = serial.Serial(COM, baudrate=9600, timeout=1)
+          init_commands = [b'F\r', b'N\r', b'C\r']
+          for cmd in init_commands:
+              serial_port.write(cmd)
+          motor_commands = [
+              (b'setM1M6\r', b'getM1M\r'),
+              (b'setM2M4\r', b'getM2M\r'),
+              (b'setM3M4\r', b'getM3M\r')
+          ]
+          responses = [send_command(set_cmd) for set_cmd, get_cmd in motor_commands]
+          for i, response in enumerate(responses, 1):
+              print(f'Motor {i}: {response}')
+          
+          if responses == [6.0, 4.0, 4.0]:
+              self.motorSerial = serial_port
+      except Exception as e:
+          print(f'{e}\nAn error has occurred. See above...')
 
-  def moveMotor(self, distance, axis):
+  def moveMotor(self, distance, axisStr):
+    axis_map = {"X": 0, "Y": 1, "Z": 2}
+    axis = axis_map.get(axisStr, 0)
+
     try:
-      inches = distance/2.54
-      steps = int(inches/.00025)
-      self.motorSerial.write(b'C\r')
-      self.motorSerial.write((f'I{str(axis)}M{str(steps)}\r\n').encode())
-      self.motorSerial.write(b'R\r')
-      time.sleep(0.2)
+        inches = distance / 2.54
+        steps = int(inches / 0.00025)
+        commands = [b'C\r', f'I{axis}M{steps}\r\n'.encode(), b'R\r']
+        for command in commands:
+            self.motorSerial.write(command)
+        time.sleep(0.2)
     except Exception as e:
-      print(f'{e}\nAn error has occured. See above...')
+        print(f'{e}\nAn error has occurred. See above...')
 
   def isMotorMoving(self):
     self.motorSerial.write(b'V\r')
@@ -81,58 +76,39 @@ class App:
     else:
       return False
 
-
-
   def getMagneticField(self):
-    command = 'CHNL X\r\n'
-    self.gaussSerial.write(command.encode())
-    command = 'RANGE 0\r\n'
-    self.gaussSerial.write(command.encode())
-    command = 'FIELD?\r\n'
-    self.gaussSerial.write(command.encode())
-    time.sleep(0.05)
-    self.gaussSerial.write(command.encode())
-    command = 'FIELDM?\r\n'
-    x = float(self.gaussSerial.readline().decode())
+      def get_field(channel):
+          commands = [
+              f'CHNL {channel}\r\n',
+              'RANGE 0\r\n',
+              'FIELD?\r\n',
+              'FIELD?\r\n',  # This command is repeated in the original code
+              'FIELDM?\r\n'
+          ]
+          for cmd in commands:
+              self.gaussSerial.write(cmd.encode())
+              if cmd == 'FIELD?\r\n':
+                  time.sleep(0.05)
+          return float(self.gaussSerial.readline().decode())
 
-    command = 'CHNL Y\r\n'
-    self.gaussSerial.write(command.encode())
-    command = 'RANGE 0\r\n'
-    self.gaussSerial.write(command.encode())
-    command = 'FIELD?\r\n'
-    self.gaussSerial.write(command.encode())
-    time.sleep(0.05)
-    self.gaussSerial.write(command.encode())
-    command = 'FIELDM?\r\n'
-    y = float(self.gaussSerial.readline().decode())
+      x = get_field('X')
+      y = get_field('Y')
+      z = get_field('Z')
 
-    command = 'CHNL Z\r\n'
-    self.gaussSerial.write(command.encode())
-    command = 'RANGE 0\r\n'
-    self.gaussSerial.write(command.encode())
-    command = 'FIELD?\r\n'
-    self.gaussSerial.write(command.encode())
-    time.sleep(0.05)
-    self.gaussSerial.write(command.encode())
-    command = 'FIELDM?\r\n'
-    z = float(self.gaussSerial.readline().decode())
-     
-    magnitudeField = np.sqrt(x**2+y**2+z**2)
-    return float(magnitudeField)
+      magnitudeField = np.sqrt(x**2 + y**2 + z**2)
+      return magnitudeField
 
   def closeCOMports(self):
-    print(f'motor serial open:{str(self.motorSerial.is_open)}')
-    try:
-      if self.gaussSerial.is_open:
-        self.gaussSerial.close()
-      if self.motorSerial.is_open:
-        self.motorSerial.write(b'Q\r')
-        #self.motorSerial.close()
-
-      return True
-    except Exception as e:
-      print(f'ERROR:{e}')
-      return False
+      print(f'motor serial open: {self.motorSerial.is_open}')
+      try:
+          if self.gaussSerial.is_open:
+              self.gaussSerial.close()
+          if self.motorSerial.is_open:
+              self.motorSerial.write(b'Q\r')
+          return True
+      except Exception as e:
+          print(f'ERROR: {e}')
+          return False
 
   def endPlot(self):
     self.motorSerial.write(b'Q\r')
