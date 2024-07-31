@@ -45,22 +45,15 @@ def download_latest_version(repo, branch, dest_dir):
             shutil.move(src_file, dest_file)
 
 def run_script(script_path):
-    try:
-        result = subprocess.run(['python', script_path], check=True, capture_output=True, text=True)
-        print(result.stdout)
-    except subprocess.CalledProcessError as e:
-        print(f"Error running script {script_path}")
-        print(e.stdout)
-        print(e.stderr)
-        raise
+    subprocess.run(['python', script_path], check=True)
 
 def main():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    program_files_dir = os.path.join(current_dir, 'ProgramFiles')
-    local_script_path = os.path.join(program_files_dir, 'main.py')
-    
+    local_script_path = os.path.join(current_dir, 'main.py')
+    local_script_dir = current_dir
+
     try:
-        with open(os.path.join(program_files_dir, 'commit_sha.txt'), 'r') as f:
+        with open(os.path.join(local_script_dir, 'commit_sha.txt'), 'r') as f:
             local_commit_sha = f.read().strip()
     except FileNotFoundError:
         local_commit_sha = ''
@@ -69,8 +62,8 @@ def main():
 
     if latest_commit_sha != local_commit_sha:
         print("New version found, updating...")
-        download_latest_version(GITHUB_REPO, GITHUB_BRANCH, program_files_dir)
-        with open(os.path.join(program_files_dir, 'commit_sha.txt'), 'w') as f:
+        download_latest_version(GITHUB_REPO, GITHUB_BRANCH, local_script_dir)
+        with open(os.path.join(local_script_dir, 'commit_sha.txt'), 'w') as f:
             f.write(latest_commit_sha)
     else:
         print("No new version found.")
