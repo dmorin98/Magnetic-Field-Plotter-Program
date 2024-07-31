@@ -15,6 +15,7 @@ import threading
 import os
 from datetime import datetime
 import csv
+import traceback
 
 class UIApp:
     def __init__(self, root):
@@ -73,27 +74,28 @@ class UIApp:
                         time.sleep(5)  # Wait before retrying
                 break 
         except Exception as e:
-            print(e)  
+            traceback.print_exc()
 
 
     def create_menu_bar(self):
-        menu_bar = tk.Menu(self.root, bg="black")
-        self.root.config(menu=menu_bar)
-        
-        # File Menu
-        file_menu = tk.Menu(menu_bar, tearoff=0)
-        file_menu.add_command(label="Exit", command=self.exitCommand, font=('Courier', 10))
-        menu_bar.add_cascade(label="File", menu=file_menu, font=('Courier', 10))
-        
-        # Options Menu
-        options_menu = tk.Menu(menu_bar, tearoff=0)
-        options_menu.add_command(label="Info", command=self.open_info_popup, font=('Courier', 10))
-        menu_bar.add_cascade(label="Options", menu=options_menu)
+        try:
+            menu_bar = tk.Menu(self.root, bg="black")
+            self.root.config(menu=menu_bar)
+            
+            # File Menu
+            file_menu = tk.Menu(menu_bar, tearoff=0)
+            file_menu.add_command(label="Exit", command=self.exitCommand, font=('Courier', 10))
+            menu_bar.add_cascade(label="File", menu=file_menu, font=('Courier', 10))
+            
+            # Options Menu
+            options_menu = tk.Menu(menu_bar, tearoff=0)
+            options_menu.add_command(label="Info", command=self.open_info_popup, font=('Courier', 10))
+            menu_bar.add_cascade(label="Options", menu=options_menu)
+        except Exception as e:
+            traceback.print_exc()
 
     def exitCommand(self):
         self.root.destroy()  # Close the Tkinter application window
-
-        
 
     def open_info_popup(self):
         # Create a new window for the info popup
@@ -249,66 +251,82 @@ class UIApp:
             print('Error in closing serial ports.')
 
     def validInputParameters(self):
-        startPos = float(self.min_entry.get())
-        endPos = float(self.max_entry.get())
-        increment = float(self.inc_entry.get())
-
-        if startPos >= endPos or startPos == 0 or endPos == 0 or increment == 0 or increment >= abs(startPos - endPos):
-            return False
-        else:
-            return True
-
-    def start_plot(self):
         try:
             startPos = float(self.min_entry.get())
             endPos = float(self.max_entry.get())
             increment = float(self.inc_entry.get())
-        except ValueError:
-            print('Invalid parameters...')
-            return None
-        
-        axis = self.axis_entry.get()
+
+            if startPos >= endPos or startPos == 0 or endPos == 0 or increment == 0 or increment >= abs(startPos - endPos):
+                return False
+            else:
+                return True
+        except Exception as e:
+            traceback.print_exc()
+
+    def start_plot(self):
+        startPos = float(self.min_entry.get())
+        endPos = float(self.max_entry.get())
+        increment = float(self.inc_entry.get())
+        axis = str(self.axis_entry.get())
         position = []
         magneticFieldMagnitude = []
+        magneticFieldX = []
+        magneticFieldY = []
+        magneticFieldZ = []
         gaussConnect, motorConnect = self.logic_app.has_serial_connect()
 
-        if gaussConnect and motorConnect and self.validInputParamters():
-            print(f'Parameters: ({startPos}, {endPos}, {increment})')
-            
-            # Move motor to the first position
-            self.logic_app.moveMotor(startPos, axis)
+        if gaussConnect and motorConnect:
+            print(f'Parameters:{startPos},{endPos},{increment}')
+
             if not os.path.exists("Results"):
                 os.makedirs("Results")
-
             results_dir = f'FieldPlot_Axis={axis}_Min={startPos}_Max={endPos}_Increment={increment}_Time={datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
             filepath = os.path.join("Results", results_dir)
 
-            with open(filepath, 'w', newline='') as file:
+            with open(filepath, 'a', newline='') as file:
                 writer = csv.writer(file)
-                writer.writerow(['Position', 'MagneticFieldMagnitude'])
-                
-                steps = int((endPos - startPos) / increment)
+                writer.writerow(['Position', 'Bx', 'By','Bz', 'MagneticFieldMagnitude'])
+                counter = 0
+                steps = int((endPos-startPos)/increment)
                 startTime = time.time()
-
-                for counter, step in enumerate(np.arange(startPos, endPos, increment), start=1):
-                    while self.logic_app.isMotorMoving():
+                for step in np.arange(startPos, endPos, increment):
+                    counter += 1
+                    while self.logic_app.isMotorMoving() == True:
                         time.sleep(0.1)
-
                     position.append(step)
-                    magneticFieldMagnitude.append(self.logic_app.getMagneticField())
-                    self.logic_app.moveMotor(increment, axis)
-                    time.sleep(0.5)
+                    samples = 5
+                    # Variables to accumulate the sums
+                    sum_magneticFieldMagnitude = 0
+                    sum_magneticFieldX = 0
+                    sum_magneticFieldY = 0
+                    sum_magneticFieldZ = 0
+                    
+                    for _ in range(samples):
+                        magneticField = self.logic_app.getMagneticField()
+                        sum_magneticFieldMagnitude += magneticField[3]
+                        sum_magneticFieldX += magneticField[0]
+                        sum_magneticFieldY += magneticField[1]
+                        sum_magneticFieldZ += magneticField[2]
+                    
+                    # Calculate averages
+                    avg_magneticFieldMagnitude = sum_magneticFieldMagnitude / samples
+                    avg_magneticFieldX = sum_magneticFieldX / samples
+                    avg_magneticFieldY = sum_magneticFieldY / samples
+                    avg_magneticFieldZ = sum_magneticFieldZ / samples
+                    
+                    magneticFieldMagnitude.append(avg_magneticFieldMagnitude)
+                    magneticFieldX.append(avg_magneticFieldX)
+                    magneticFieldY.append(avg_magneticFieldY)
+                    magneticFieldZ.append(avg_magneticFieldZ)
 
-                    writer.writerow([position[-1], magneticFieldMagnitude[-1]])
-
-                    percentageFinished = int(100 * counter / steps)
+                    self.logic_app.moveMotor(-increment, axis)
+                    writer.writerow([position[-1], magneticFieldX[-1], magneticFieldY[-1], magneticFieldZ[-1], magneticFieldMagnitude[-1]])
+                    percentageFinished = int(100*counter/steps)
                     elapsedTime = time.time() - startTime
-                    timePerStep = elapsedTime / counter
-                    remainingTime = round((timePerStep * (steps - counter)) / 60, 1)
-
-                    print(f'Position: {round(step, 1)}, Steps: {counter}/{steps} ({percentageFinished}%), Time Remaining: {remainingTime} min')
+                    timeperStep = elapsedTime/counter
+                    remainingTime = round((timeperStep*(steps-counter))/60, 1)
+                    print(f'Position: {round(step,1)}, Steps: {counter}/{steps} ({percentageFinished}%), Time Remaining: {remainingTime} min')
                     self.animation(position, magneticFieldMagnitude)
-
             self.logic_app.endPlot()
             print('Field measurement complete.')
         else:
