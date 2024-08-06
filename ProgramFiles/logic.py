@@ -34,7 +34,7 @@ class App:
 
     def serial_connect_motor(self, COM):
         try:
-            serial_port = serial.Serial('COM5', baudrate=9600, timeout=1)
+            serial_port = serial.Serial(COM, baudrate=9600, timeout=1)
             serial_port.write(b'F\r')
             serial_port.write(b'N\r')
             serial_port.write(b'C\r')
@@ -43,7 +43,7 @@ class App:
 
             response1_raw = serial_port.readline().decode().strip()
             print(f'Raw Motor 1 response: {response1_raw}')
-            response1 = float(response1_raw) if response1_raw.replace('.', '', 1).isdigit() else None
+            response1 = float(response1_raw)
             print(f'Motor 1: {response1}')
 
             serial_port.write(b'setM2M4\r')
@@ -51,7 +51,7 @@ class App:
 
             response2_raw = serial_port.readline().decode().strip()
             print(f'Raw Motor 2 response: {response2_raw}')
-            response2 = float(response2_raw) if response2_raw.replace('.', '', 1).isdigit() else None
+            response2 = float(response2_raw)
             print(f'Motor 2: {response2}')
 
             serial_port.write(b'setM3M4\r')
@@ -59,11 +59,12 @@ class App:
 
             response3_raw = serial_port.readline().decode().strip()
             print(f'Raw Motor 3 response: {response3_raw}')
-            response3 = float(response3_raw) if response3_raw.replace('.', '', 1).isdigit() else None
+            response3 = float(response3_raw)
             print(f'Motor 3: {response3}')
 
             # Condition for if the correct motor COM has been found and responding correctly
             if response1 == 6.0 and response2 == 4.0 and response3 == 4.0:
+                print('Serial motor connection made')
                 self.motorSerial = serial_port
         except serial.SerialException as e:
             print(f'Serial error: {e}')
@@ -79,7 +80,6 @@ class App:
         axis_map = {"X": 1, "Y": 2, "Z": 3}
         axis = axis_map.get(axisStr, 0)
         #CHANGE THIS
-        axis = 3
         try:
             inches = distance / 2.54
             print(f'distance:{distance}')
@@ -150,6 +150,7 @@ class App:
 
     def endPlot(self):
         self.motorSerial.write(b'Q\r')
+        self.closeCOMports()
 
 def main():
   pass

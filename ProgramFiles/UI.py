@@ -1,7 +1,7 @@
 # UI.py
 
 import tkinter as tk
-from tkinter import *
+from tkinter import filedialog
 import customtkinter
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -16,11 +16,21 @@ import os
 from datetime import datetime
 import csv
 import traceback
+import pandas as pd
 
 class UIApp:
     def __init__(self, root):
+        # Ensure x and y are sequences when calling animation
+
+        self.position = []
+        self.magneticFieldMagnitude = []
+        self.magneticFieldX = []
+        self.magneticFieldY = []
+        self.magneticFieldZ = []
+
         self.logic_app = App(root)
         self.root = root
+        #self.animation(x=[0], y=[0])
         self.root.title("Magnetic Field Plotter")
         self.default_font = ("Arial", 12)
         self.root.option_add("*Font", self.default_font)
@@ -55,15 +65,13 @@ class UIApp:
                         break
                     else:
                         print('Gaussmeter cannot connect.\nRetrying connection in 5 seconds...\n')
-                        time.sleep(5)  # Wait before retrying
+                        time.sleep(5)
 
                 while self.logic_app.has_serial_connect()[1] == False:
-                    #Create motor connection
                     ports = serial.tools.list_ports.comports()
                     active_ports = [port.device for port in ports]
 
                     for port in active_ports:
-                        #print(f'Trying port: {port}')
                         self.logic_app.serial_connect_motor(port)
 
                     if self.logic_app.has_serial_connect()[1] == True:
@@ -71,7 +79,7 @@ class UIApp:
                         break
                     else:
                         print('Motors cannot connect.\nRetrying connection in 5 seconds...\n')
-                        time.sleep(5)  # Wait before retrying
+                        time.sleep(5) 
                 break 
         except Exception as e:
             traceback.print_exc()
@@ -86,6 +94,7 @@ class UIApp:
             file_menu = tk.Menu(menu_bar, tearoff=0)
             file_menu.add_command(label="Exit", command=self.exitCommand, font=('Courier', 10))
             menu_bar.add_cascade(label="File", menu=file_menu, font=('Courier', 10))
+            file_menu.add_command(label="Save Field", command=self.save_field_result, font=('Courier', 10))
             
             # Options Menu
             options_menu = tk.Menu(menu_bar, tearoff=0)
@@ -95,7 +104,35 @@ class UIApp:
             traceback.print_exc()
 
     def exitCommand(self):
+        self.logic_app.closeCOMports()
         self.root.destroy()  # Close the Tkinter application window
+
+    def save_field_result(self):
+        data = {
+            'Position': self.position,
+            'Bx': self.magneticFieldX,
+            'By': self.magneticFieldY,
+            'Bz': self.magneticFieldZ,
+            'MagneticFieldMagnitude': self.magneticFieldMagnitude
+        }
+        df = pd.DataFrame(data)
+
+        # Create the root window
+        root = tk.Tk()
+        root.withdraw()  # Hide the root window
+
+        # Open a file dialog to choose where to save the CSV
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            title="Save CSV File",
+            initialfile=f'MagneticFieldPlot, {datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
+        )
+
+        if file_path:
+            # Save the data to the chosen file path
+            df.to_csv(file_path, index=False)
+            print(f"CSV file saved to {file_path}")
 
     def open_info_popup(self):
         # Create a new window for the info popup
@@ -228,16 +265,14 @@ class UIApp:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(fill='both', expand=True)
 
-        self.animation(x=0, y=0)
+        self.animation(x=[0], y=[0])
 
-        
     def animation(self, x, y):
         self.line.set_data(x, y)
         self.ax.relim()
         self.ax.autoscale_view(True,True,True)
         self.canvas.draw()
         self.canvas.flush_events()
-        #self.root.after(1000, self.animation(x,y))
         
     def update_plot(self):
         pass
@@ -268,11 +303,11 @@ class UIApp:
         endPos = float(self.max_entry.get())
         increment = float(self.inc_entry.get())
         axis = str(self.axis_entry.get())
-        position = []
-        magneticFieldMagnitude = []
-        magneticFieldX = []
-        magneticFieldY = []
-        magneticFieldZ = []
+        self.position = []
+        self.magneticFieldMagnitude = []
+        self.magneticFieldX = []
+        self.magneticFieldY = []
+        self.magneticFieldZ = []
         gaussConnect, motorConnect = self.logic_app.has_serial_connect()
 
         if gaussConnect and motorConnect:
@@ -293,7 +328,7 @@ class UIApp:
                     counter += 1
                     while self.logic_app.isMotorMoving() == True:
                         time.sleep(0.1)
-                    position.append(step)
+                    self.position.append(step)
                     samples = 5
                     # Variables to accumulate the sums
                     sum_magneticFieldMagnitude = 0
@@ -314,19 +349,19 @@ class UIApp:
                     avg_magneticFieldY = sum_magneticFieldY / samples
                     avg_magneticFieldZ = sum_magneticFieldZ / samples
                     
-                    magneticFieldMagnitude.append(avg_magneticFieldMagnitude)
-                    magneticFieldX.append(avg_magneticFieldX)
-                    magneticFieldY.append(avg_magneticFieldY)
-                    magneticFieldZ.append(avg_magneticFieldZ)
+                    self.magneticFieldMagnitude.append(avg_magneticFieldMagnitude)
+                    self.magneticFieldX.append(avg_magneticFieldX)
+                    self.magneticFieldY.append(avg_magneticFieldY)
+                    self.magneticFieldZ.append(avg_magneticFieldZ)
 
                     self.logic_app.moveMotor(-increment, axis)
-                    writer.writerow([position[-1], magneticFieldX[-1], magneticFieldY[-1], magneticFieldZ[-1], magneticFieldMagnitude[-1]])
+                    writer.writerow([self.position[-1], self.magneticFieldX[-1], self.magneticFieldY[-1], self.magneticFieldZ[-1], self.magneticFieldMagnitude[-1]])
                     percentageFinished = int(100*counter/steps)
                     elapsedTime = time.time() - startTime
                     timeperStep = elapsedTime/counter
                     remainingTime = round((timeperStep*(steps-counter))/60, 1)
                     print(f'Position: {round(step,1)}, Steps: {counter}/{steps} ({percentageFinished}%), Time Remaining: {remainingTime} min')
-                    self.animation(position, magneticFieldMagnitude)
+                    self.animation(self.position, self.magneticFieldMagnitude)
             self.logic_app.endPlot()
             print('Field measurement complete.')
         else:
